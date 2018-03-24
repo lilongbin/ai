@@ -5,12 +5,12 @@
 # Created date: 2018-01-15 22:52:33
 ####################################################
 
-import chardet
+from chardet import detect, universaldetector
 
 def filechardet(filename):
     enc = None
     with open(filename, "rb") as fd:
-        rawdata = fd.read()
+        rawdata = fd.read(1024)
         # enc = chardet.detect(rawdata)["encoding"]
         enc = chardet.detect(rawdata).get("encoding")
     # print(enc)
@@ -33,6 +33,17 @@ def test(filename=""):
     with codecs.open(filename, encoding=fileenc) as fd:
         for line in fd:
             print("%s" % line.rstrip())
+
+def bigfilechardet(filename, block=256):
+    detector = universaldetector.UniversalDetector()
+    with open(filename, 'rb') as fd:
+        bytes = fd.read(block)
+        while bytes and not detector.done:
+            detector.feed(bytes)
+            bytes = fd.read(block)
+    detector.close()
+    # print(detector.result)
+    return detector.result.get("encoding")
 
 if __name__ == "__main__":
     import sys
