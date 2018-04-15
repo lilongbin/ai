@@ -6,6 +6,7 @@ import sys
 import tty
 import termios
 
+"use show-key -a command to detect keyboard"
 '''
 Enter:  13
 Back:   127
@@ -18,6 +19,8 @@ C-c:    3
 C-d:    4
 C-\:    28
 SPACE:  32
+UP:     \x1b\x5b\x41
+DOWN:   \x1b\x5b\x42
 '''
 
 CLI_KEY_CNCR  = 13
@@ -37,6 +40,7 @@ class CLI(object):
     def __init__(self):
         self.line = ''
         self.line_complete = ''
+        self.prompt_msg = ""
         self.completer_on = False
         self.completer_dict = {}
         self.completer_dict_keys = self.completer_dict.keys()
@@ -51,18 +55,21 @@ class CLI(object):
         finally:
             termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
         return ch
+    def set_prompt(self, prompt):
+        self.prompt_msg = "\r" + prompt + " "
     def completer_kw_update(self):
-        self.completer_dict_keys = self.completer_dict.keys()
+        self.completer_dict_keys = list(self.completer_dict.keys())
         self.completer_dict_keys.sort()
         self.completer_cnt = len(self.completer_dict)
     def completer_kw_add(self, key, word):
         self.completer_dict[key] = word
-        self.completer_kw_update()
+        # self.completer_kw_update()
     def completer_kw_clear(self):
         self.completer_dict.clear()
+        self.completer_kw_update()
         self.completer_id_update()
     def completer_id_update(self):
-        self.completer_kw_update()
+        # self.completer_kw_update()
         if self.completer_id < self.completer_cnt - 1:
             self.completer_id += 1
         else:
@@ -80,6 +87,7 @@ class CLI(object):
         return ''
     def printf(self, info=''):
         sys.stdout.write(info)
+        sys.stdout.flush()
     def show_spec_len_str(self, info, maxlen, spacech=' '):
         'display a string of the specified length'
         maxlen = maxlen
@@ -95,6 +103,10 @@ class CLI(object):
         while maxlen>0:
             self.printf(spacech)
             maxlen -= self.char_display_len(spacech)
+    def set_help_info(self, help_info):
+        for key in help_info:
+            self.completer_kw_add(key, help_info[key])
+        self.completer_kw_update()
     def show_help_info(self):
         if self.completer_on:
             line = self.line_complete
@@ -167,6 +179,8 @@ class CLI(object):
         line_complete = self.line_complete
         lastwd = ''
         self.printf('\r\n')
+        prompt = self.prompt_msg
+        self.printf(prompt)
         if self.line_complete:
             self.printf(self.line_complete)
         else:
@@ -194,6 +208,8 @@ class CLI(object):
         self.line = ''
         self.line_complete = ''
         self.completer_on = False
+        prompt = self.prompt_msg
+        self.printf(prompt)
         while True:
             ch = self.getch()
             if ch == '\r' or ch == '\n':
@@ -247,8 +263,23 @@ class CLI(object):
                 self.printf(ch)
                 self.do_line_complete_end()
                 self.line += ch
+                # UP or DOWN key
+                if ord(ch) == 0x41 and len(self.line)>= 3 and self.line[-3:] == '\x1b\x5b\x41':
+                    self.line = self.line[:-3]
+                    if self.completer_on:
+                        self.line_complete = self.rm_one_line(self.line_complete)
+                    else:
+                        self.line = self.rm_one_line(self.line)
+                    self.do_line_complete_end()
+                if ord(ch) == 0x42 and len(self.line)>= 3 and self.line[-3:] == '\x1b\x5b\x42':
+                    self.line = self.line[:-3]
+                    if self.completer_on:
+                        self.line_complete = self.rm_one_line(self.line_complete)
+                    else:
+                        self.line = self.rm_one_line(self.line)
+                    self.do_line_complete_end()
                 # chinese qmask proc
-                if ord(ch) == 159 and len(self.line)>= 3 and self.line[-3:] == '\xef\xbc\x9f':
+                if ord(ch) == 0x9f and len(self.line)>= 3 and self.line[-3:] == '\xef\xbc\x9f':
                     self.printf('\r\n')
                     self.line = self.line[:-3]
                     self.show_help_info()
@@ -256,6 +287,8 @@ class CLI(object):
         return self.line
     def get_raw_line(self):
         self.raw_line = ''
+        prompt = self.prompt_msg
+        self.printf(prompt)
         while True:
             ch = self.getch()
             if ch == '\r' or ch == '\n':
@@ -283,8 +316,9 @@ class CLI(object):
                 self.printf(ch)
         return self.raw_line
 
-def test():
+def cli_test():
     cli = CLI()
+    cli.set_prompt("<user>")
     help_info = {
     	'hello0':     'say hello 0',
     	'hello1':     'say hello 1',
@@ -295,15 +329,17 @@ def test():
     	'你好吗':      'say 你好吗',
     	'你好哈':      'say 你好哈',
     	}
-    for key in help_info:
-        cli.completer_kw_add(key, help_info[key])
+    cli.set_help_info(help_info)
     while True:
         line = cli.get_line()
         if len(line) == 1 and ord(line[0]) == CLI_KEY_CTRLD:
             break
-        if line == 'quit':
+        if line in ["q", "quit"]:
             break
-        print(line)
+        if line.strip():
+            print(line.rstrip())
 
 if __name__ == "__main__": 
-    test()
+    cli_test()
+
+
