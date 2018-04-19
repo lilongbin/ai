@@ -70,15 +70,15 @@ class CLI(object):
         self.completer_id_update()
     def completer_id_update(self):
         # self.completer_kw_update()
-        if self.completer_id < self.completer_cnt - 1:
-            self.completer_id += 1
-        else:
+        if self.completer_id >= self.completer_cnt - 1:
             self.completer_id = 0
+        else:
+            self.completer_id += 1
     def completer_wd_select(self, word):
         if not word:
             return ''
         cnt = self.completer_cnt
-        while cnt>0:
+        while cnt>=0:
             completer = self.completer_dict_keys[self.completer_id]
             self.completer_id_update()
             cnt -= 1
@@ -103,7 +103,7 @@ class CLI(object):
         while maxlen>0:
             self.printf(spacech)
             maxlen -= self.char_display_len(spacech)
-    def set_help_info(self, help_info):
+    def set_help_info_dct(self, help_info):
         for key in help_info:
             self.completer_kw_add(key, help_info[key])
         self.completer_kw_update()
@@ -163,11 +163,11 @@ class CLI(object):
         if not linelen:
             return line
         lastwd = line.split()[-1]
-        backlen = len(lastwd) + rspacelen
+        backspacelen = len(lastwd) + rspacelen
         rmlen = 0
-        while backlen>0 and line:
+        while backspacelen>0 and line:
             rmlen, line = self.rm_last_char(line)
-            backlen -= rmlen
+            backspacelen -= rmlen
         return line
     def rm_one_line(self, line):
         rmlen = 0
@@ -191,11 +191,10 @@ class CLI(object):
         completer = self.completer_wd_select(lastwd)
         if not completer.strip():
             self.line_complete = line
-            return line
-        backlen = len(line_complete) - len(line)
-        while backlen>0 and line_complete:
+        backspacelen = len(line_complete) - len(line)
+        while backspacelen>0 and line_complete:
             rmlen, line_complete = self.rm_last_char(line_complete)
-            backlen -= rmlen
+            backspacelen -= rmlen
         self.printf(completer)
         line_complete = line + completer
         self.line_complete = line_complete
@@ -226,6 +225,7 @@ class CLI(object):
                 self.printf('?')
                 self.printf('\r\n')
                 self.show_help_info()
+                self.printf(prompt)
                 if self.completer_on:
                     self.printf(self.line_complete)
                 else:
@@ -320,8 +320,10 @@ def cli_test():
     cli = CLI()
     cli.set_prompt("<user>")
     help_info = {
+    	'hello':      'say hello',
     	'hello0':     'say hello 0',
     	'hello1':     'say hello 1',
+    	'helloh':     'say hello h',
     	'hellohello': 'say hello hello',
     	'hellohehe':  'say hello hehe',
     	'hellohi':    'say hello hi',
@@ -329,7 +331,7 @@ def cli_test():
     	'你好吗':      'say 你好吗',
     	'你好哈':      'say 你好哈',
     	}
-    cli.set_help_info(help_info)
+    cli.set_help_info_dct(help_info)
     while True:
         line = cli.get_line()
         if len(line) == 1 and ord(line[0]) == CLI_KEY_CTRLD:
